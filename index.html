@@ -1,0 +1,2355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falling Sand Game</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1a1a1a;
+            font-family: Arial, sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+            margin: 20px;
+            align-items: flex-start;
+        }
+
+        #canvas {
+            border: 2px solid #333;
+            background-color: #000;
+        }
+
+        .chat-container {
+            width: 300px;
+            background-color: #2a2a2a;
+            border: 2px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+            margin-bottom: 40px;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .export-button {
+            padding: 5px 10px;
+            font-size: 12px;
+            background-color: #555;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .export-button:hover {
+            background-color: #666;
+        }
+
+        .chat-box {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
+        }
+
+        .disclaimer {
+            background-color: #444;
+            color: #ff6b6b;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-align: center;
+            border: 1px solid #ff6b6b;
+        }
+
+        .active-comments {
+            flex-grow: 1;
+            min-height: 0;
+        }
+
+        .hidden-comments-section {
+            margin-top: 10px;
+            border-top: 1px solid #444;
+            padding-top: 10px;
+            position: sticky;
+            bottom: 0;
+            background-color: #333;
+            z-index: 1;
+        }
+
+        .hidden-comments-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px;
+            background-color: #444;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .hidden-comments-header:hover {
+            background-color: #555;
+        }
+
+        .hidden-comments-content {
+            display: none;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background-color: #333;
+        }
+
+        .hidden-comments-content.expanded {
+            display: block;
+        }
+
+        .comment {
+            background-color: #444;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            word-wrap: break-word;
+            position: relative;
+        }
+
+        .comment .timestamp {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .hide-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .hide-button:hover {
+            background-color: #555;
+            color: #fff;
+        }
+
+        .restore-button {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 5px;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+
+        .restore-button:hover {
+            background-color: #555;
+            color: #fff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .brush-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .brush-controls label {
+            margin-right: 10px;
+        }
+
+        input[type="range"] {
+            width: 150px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #444;
+            color: white;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        button.active {
+            background-color: #666;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        #poison {
+            background-color: #800080;
+        }
+    </style>
+</head>
+<body>
+    <h1>Falling Sand Game</h1>
+    <div class="controls">
+        <button id="wall" class="active">Wall</button>
+        <button id="sand">Sand</button>
+        <button id="water">Water</button>
+        <button id="fire">Fire</button>
+        <button id="plant">Plant</button>
+        <button id="spout">Spout</button>
+        <button id="oil">Oil</button>
+        <button id="poison">Poison</button>
+        <button id="fungus">Fungus</button>
+        <button id="nanobot">Nanobot</button>
+        <button id="cryo">Cryo</button>
+        <button id="lava">Lava</button>
+        <button id="acid">Acid</button>
+        <button id="clearCanvas">Clear Canvas</button>
+    </div>
+    <div class="brush-controls">
+        <label for="brushSize">Brush Size:</label>
+        <input type="range" id="brushSize" min="1" max="20" value="1">
+        <span id="brushSizeValue">1</span>
+    </div>
+    <div class="game-container">
+        <canvas id="canvas"></canvas>
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>Element Ideas</h3>
+                <button class="export-button" id="exportButton">Export Comments</button>
+            </div>
+            <div class="chat-box" id="chatBox">
+                <div class="disclaimer">
+                    Backend storage is not currently available. Comments will work once that is set up.
+                </div>
+                <div class="active-comments">
+                    <!-- Active comments will be here -->
+                </div>
+                <div class="hidden-comments-section">
+                    <div class="hidden-comments-header" id="hiddenCommentsHeader">
+                        <span>Hidden Comments</span>
+                        <span class="hidden-count">(0)</span>
+                    </div>
+                    <div class="hidden-comments-content" id="hiddenCommentsContent">
+                        <!-- Hidden comments will be here -->
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="messageInput" placeholder="Suggest a new element...">
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const CELL_SIZE = 2;
+        const FPS = 60;
+        const PARTICLE_TYPES = {
+            EMPTY: 0,
+            WALL: 1,
+            SAND: 2,
+            WATER: 3,
+            FIRE: 4,
+            PLANT: 5,
+            SPOUT: 6,
+            OIL: 7,
+            POISON: 8,
+            DUST: 9,
+            FUNGUS: 10,
+            NANOBOT: 11,
+            CRYO: 12,
+            ICE: 13,
+            LAVA: 14,
+            STONE: 15,
+            ACID: 16
+        };
+
+        // Game state
+        let canvas, ctx;
+        let grid = [];
+        let fireCooldowns = []; // Track fire particle cooldowns
+        let plantHeatTimers = []; // Track plant heat build-up timers
+        let oilHeatTimers = []; // Track oil heat build-up timers
+        let poisonTimers = []; // Track plant poisoning timers
+        let poisonStates = []; // Track poison particle states (active/transforming)
+        let dustTimers = []; // Track dust particle lifetimes
+        let nanobotDirections = []; // Track nanobot movement directions
+        let nanobotCount = 0; // Track total number of nanobots
+        let lavaCoolingTimers = []; // Track lava cooling timers
+        let acidCorrosionTimers = []; // Track acid corrosion timers
+        const MAX_NANOBOTS = 200; // Maximum number of nanobots allowed
+        let nanobotSwarmCenter = [0, 0]; // Track the center of the nanobot swarm
+        let currentTool = PARTICLE_TYPES.WALL;
+        let isDrawing = false;
+        let isErasing = false;
+        let brushSize = 1;
+        let lastX = -1;
+        let lastY = -1;
+        let spoutTimer = 0;
+
+        // Initialize the game
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            // Set canvas size to fill most of the screen with bottom margin
+            canvas.width = Math.floor(window.innerWidth * 0.5);
+            canvas.height = Math.floor(window.innerHeight * 0.7);
+
+            // Initialize grid and cooldown grid
+            const cols = Math.floor(canvas.width / CELL_SIZE);
+            const rows = Math.floor(canvas.height / CELL_SIZE);
+            
+            grid = Array(rows).fill().map(() => Array(cols).fill(PARTICLE_TYPES.EMPTY));
+            fireCooldowns = Array(rows).fill().map(() => Array(cols).fill(0));
+            plantHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+            oilHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+            poisonTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+            poisonStates = Array(rows).fill().map(() => Array(cols).fill(0));
+            dustTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+            nanobotDirections = Array(rows).fill().map(() => Array(cols).fill([0, 0]));
+            lavaCoolingTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+            acidCorrosionTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+
+            // Event listeners
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+            
+            // Prevent context menu on right click
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+            // Brush size control
+            const brushSizeInput = document.getElementById('brushSize');
+            const brushSizeValue = document.getElementById('brushSizeValue');
+            brushSizeInput.addEventListener('input', () => {
+                brushSize = parseInt(brushSizeInput.value);
+                brushSizeValue.textContent = brushSize;
+            });
+
+            // Tool selection buttons
+            document.querySelectorAll('.controls button').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (button.id === 'clearCanvas') {
+                        clearCanvas();
+                        return;
+                    }
+                    document.querySelector('.active')?.classList.remove('active');
+                    button.classList.add('active');
+                    currentTool = PARTICLE_TYPES[button.id.toUpperCase()];
+                });
+            });
+
+            document.getElementById('poison').addEventListener('click', () => {
+                currentTool = PARTICLE_TYPES.POISON;
+                updateActiveButton('poison');
+            });
+
+            // Add fungus button event listener
+            document.getElementById('fungus').addEventListener('click', () => {
+                currentTool = PARTICLE_TYPES.FUNGUS;
+                updateActiveButton('fungus');
+            });
+
+            // Add nanobot button event listener
+            document.getElementById('nanobot').addEventListener('click', () => {
+                currentTool = PARTICLE_TYPES.NANOBOT;
+                updateActiveButton('nanobot');
+            });
+
+            // Add cryo button event listener
+            document.getElementById('cryo').addEventListener('click', () => {
+                currentTool = PARTICLE_TYPES.CRYO;
+                updateActiveButton('cryo');
+            });
+
+            // Add lava button event listener
+            document.getElementById('lava').addEventListener('click', () => {
+                currentTool = PARTICLE_TYPES.LAVA;
+                updateActiveButton('lava');
+            });
+
+            // Add acid button event listener
+            document.getElementById('acid').addEventListener('click', () => {
+                currentTool = PARTICLE_TYPES.ACID;
+                updateActiveButton('acid');
+            });
+
+            // Start game loop
+            setInterval(update, 1000 / FPS);
+        }
+
+        // Handle mouse events
+        function handleMouseDown(e) {
+            isDrawing = e.button === 0;
+            isErasing = e.button === 2;
+            lastX = -1;
+            lastY = -1;
+            handleMouseMove(e);
+        }
+
+        function handleMouseMove(e) {
+            if (!isDrawing && !isErasing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+
+            if (x >= 0 && x < grid[0].length && y >= 0 && y < grid.length) {
+                // Always draw at current position
+                drawLine(x, y, x, y);
+                
+                // If we have a last position, also draw a line between points
+                if (lastX !== -1 && lastY !== -1) {
+                    drawLine(lastX, lastY, x, y);
+                }
+                
+                lastX = x;
+                lastY = y;
+            }
+        }
+
+        function drawLine(x0, y0, x1, y1) {
+            const dx = Math.abs(x1 - x0);
+            const dy = Math.abs(y1 - y0);
+            const sx = x0 < x1 ? 1 : -1;
+            const sy = y0 < y1 ? 1 : -1;
+            let err = dx - dy;
+
+            while (true) {
+                // Draw brush circle at current position
+                for (let by = -Math.floor(brushSize/2); by <= Math.floor(brushSize/2); by++) {
+                    for (let bx = -Math.floor(brushSize/2); bx <= Math.floor(brushSize/2); bx++) {
+                        const nx = x0 + bx;
+                        const ny = y0 + by;
+                        if (nx >= 0 && nx < grid[0].length && ny >= 0 && ny < grid.length) {
+                            if (isErasing) {
+                                grid[ny][nx] = PARTICLE_TYPES.EMPTY;
+                            } else if (currentTool === PARTICLE_TYPES.FIRE) {
+                                // Special handling for fire to create floating flames
+                                if (ny >= 0 && ny < grid.length) {
+                                    // Place fire at cursor position
+                                    grid[ny][nx] = PARTICLE_TYPES.FIRE;
+                                    
+                                    // Add additional fire particles above the cursor
+                                    const flameHeight = Math.floor(brushSize * 4); // Increased from 2.25 to 4 for taller flames
+                                    for (let fy = 1; fy <= flameHeight; fy++) {
+                                        // Only add fire particles with decreasing probability as height increases
+                                        if (Math.random() < 0.8 - (fy * 0.15)) { // Increased base probability from 0.7 to 0.8
+                                            const flameY = ny - fy;
+                                            if (flameY >= 0 && flameY < grid.length) {
+                                                // Add some horizontal variation to the flames
+                                                const flameX = nx + Math.floor(Math.random() * 3) - 1;
+                                                if (flameX >= 0 && flameX < grid[0].length) {
+                                                    grid[flameY][flameX] = PARTICLE_TYPES.FIRE;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (currentTool === PARTICLE_TYPES.NANOBOT) {
+                                // Special handling for nanobots to respect the maximum count
+                                if (nanobotCount < MAX_NANOBOTS) {
+                                    grid[ny][nx] = PARTICLE_TYPES.NANOBOT;
+                                    nanobotCount++;
+                                }
+                            } else {
+                                grid[ny][nx] = currentTool;
+                            }
+                        }
+                    }
+                }
+
+                if (x0 === x1 && y0 === y1) break;
+                const e2 = 2 * err;
+                if (e2 > -dy) {
+                    err -= dy;
+                    x0 += sx;
+                }
+                if (e2 < dx) {
+                    err += dx;
+                    y0 += sy;
+                }
+            }
+        }
+
+        function handleMouseUp() {
+            isDrawing = false;
+            isErasing = false;
+            lastX = -1;
+            lastY = -1;
+        }
+
+        // Update particle positions
+        function update() {
+            const rows = grid.length;
+            const cols = grid[0].length;
+
+            // Process particles from bottom to top for proper falling behavior
+            for (let y = rows - 1; y >= 0; y--) {
+                // Process columns in alternating order to avoid bias
+                const cols = Array.from({length: grid[0].length}, (_, i) => i);
+                if (y % 2 === 0) {
+                    cols.reverse();
+                }
+
+                for (const x of cols) {
+                    const particle = grid[y][x];
+                    
+                    switch (particle) {
+                        case PARTICLE_TYPES.SAND:
+                            updateSand(x, y);
+                            break;
+                        case PARTICLE_TYPES.WATER:
+                            updateWater(x, y);
+                            break;
+                        case PARTICLE_TYPES.FIRE:
+                            updateFire(x, y);
+                            break;
+                        case PARTICLE_TYPES.PLANT:
+                            updatePlant(x, y);
+                            break;
+                        case PARTICLE_TYPES.OIL:
+                            updateOil(x, y);
+                            break;
+                        case PARTICLE_TYPES.POISON:
+                            updatePoison(x, y);
+                            break;
+                        case PARTICLE_TYPES.DUST:
+                            updateDust(x, y);
+                            break;
+                        case PARTICLE_TYPES.FUNGUS:
+                            updateFungus(x, y);
+                            break;
+                        case PARTICLE_TYPES.NANOBOT:
+                            updateNanobot(x, y);
+                            break;
+                        case PARTICLE_TYPES.CRYO:
+                            updateCryo(x, y);
+                            break;
+                        case PARTICLE_TYPES.ICE:
+                            updateIce(x, y);
+                            break;
+                        case PARTICLE_TYPES.LAVA:
+                            updateLava(x, y);
+                            break;
+                        case PARTICLE_TYPES.ACID:
+                            updateAcid(x, y);
+                            break;
+                    }
+                }
+            }
+
+            // Update spouts
+            updateSpouts();
+
+            // Update all timers
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (fireCooldowns[y][x] > 0) {
+                        fireCooldowns[y][x]--;
+                    }
+                    // Update plant heat timers
+                    if (plantHeatTimers[y][x] > 0) {
+                        plantHeatTimers[y][x]--;
+                        if (plantHeatTimers[y][x] === 0 && (grid[y][x] === PARTICLE_TYPES.PLANT || grid[y][x] === PARTICLE_TYPES.FUNGUS)) {
+                            grid[y][x] = PARTICLE_TYPES.FIRE;
+                            fireCooldowns[y][x] = 15;
+                        }
+                    }
+                    // Update oil heat timers
+                    if (oilHeatTimers[y][x] > 0) {
+                        oilHeatTimers[y][x]--;
+                        if (oilHeatTimers[y][x] === 0 && grid[y][x] === PARTICLE_TYPES.OIL) {
+                            grid[y][x] = PARTICLE_TYPES.FIRE;
+                            fireCooldowns[y][x] = 15;
+                        }
+                    }
+                    // Update poison timers
+                    if (poisonTimers[y][x] > 0) {
+                        poisonTimers[y][x]--;
+                        if (poisonTimers[y][x] === 0) {
+                            if (grid[y][x] === PARTICLE_TYPES.PLANT) {
+                                // Transform plant into dust
+                                grid[y][x] = PARTICLE_TYPES.DUST;
+                                dustTimers[y][x] = Math.floor(Math.random() * 30) + 30; // 30-60 frames (0.5-1 second)
+                            } else if (grid[y][x] === PARTICLE_TYPES.POISON && poisonStates[y][x] === 1) {
+                                // Transform poison into dust
+                                grid[y][x] = PARTICLE_TYPES.DUST;
+                                dustTimers[y][x] = Math.floor(Math.random() * 30) + 30; // 30-60 frames (0.5-1 second)
+                                poisonStates[y][x] = 0;
+                            }
+                        }
+                    }
+                    // Update dust timers
+                    if (dustTimers[y][x] > 0) {
+                        dustTimers[y][x]--;
+                        if (dustTimers[y][x] === 0 && grid[y][x] === PARTICLE_TYPES.DUST) {
+                            grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        }
+                    }
+                    // Update acid corrosion timers
+                    if (acidCorrosionTimers[y][x] > 0) {
+                        acidCorrosionTimers[y][x]--;
+                        if (acidCorrosionTimers[y][x] === 0) {
+                            // Corrode the particle
+                            grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        }
+                    }
+                }
+            }
+
+            // Recalculate nanobot count
+            nanobotCount = 0;
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (grid[y][x] === PARTICLE_TYPES.NANOBOT) {
+                        nanobotCount++;
+                    }
+                }
+            }
+
+            draw();
+        }
+
+        // Update sand particle
+        function updateSand(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Try to move down with minimal horizontal movement
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.SAND;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.SAND;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                }
+                return;
+            }
+
+            // Try to move diagonally with minimal spread
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            if (x + direction >= 0 && x + direction < grid[0].length &&
+                grid[y + 1][x + direction] === PARTICLE_TYPES.EMPTY) {
+                grid[y + 1][x + direction] = PARTICLE_TYPES.SAND;
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+            }
+        }
+
+        // Update water particle
+        function updateWater(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Try to move down with minimal horizontal movement
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.WATER;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.WATER;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                }
+                return;
+            }
+
+            // Enhanced horizontal movement with minimal spread
+            const maxSpread = 1; // Reduced to 1 for more controlled flow
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            let moved = false;
+
+            // Try multiple horizontal positions
+            for (let spread = 1; spread <= maxSpread; spread++) {
+                const testX = x + (direction * spread);
+                if (testX >= 0 && testX < grid[0].length) {
+                    if (grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                        if (Math.random() < 0.2 && y + 1 < grid.length && grid[y + 1][testX] === PARTICLE_TYPES.EMPTY) {
+                            grid[y + 1][testX] = PARTICLE_TYPES.WATER;
+                        } else {
+                            grid[y][testX] = PARTICLE_TYPES.WATER;
+                        }
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+
+            // If couldn't move horizontally, try the other direction
+            if (!moved && Math.random() < 0.5) {
+                const altDirection = -direction;
+                const testX = x + altDirection;
+                if (testX >= 0 && testX < grid[0].length && grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                    grid[y][testX] = PARTICLE_TYPES.WATER;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                }
+            }
+        }
+
+        // Update fire particle
+        function updateFire(x, y) {
+            if (y <= 0) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                fireCooldowns[y][x] = 0;
+                return;
+            }
+
+            // Check for water to extinguish
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.WATER) {
+                            grid[y][x] = PARTICLE_TYPES.EMPTY;
+                            fireCooldowns[y][x] = 0;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Random chance to extinguish with height-based probability
+            const heightFactor = 1 - (y / grid.length);
+            if (Math.random() < 0.1 + (heightFactor * 0.2)) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                fireCooldowns[y][x] = 0;
+                return;
+            }
+
+            // Try to move up with minimal horizontal drift
+            const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+            let moved = false;
+
+            // Try moving up with drift
+            if (y - 1 >= 0 && x + drift >= 0 && x + drift < grid[0].length) {
+                if (grid[y - 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y - 1][x + drift] = PARTICLE_TYPES.FIRE;
+                    fireCooldowns[y - 1][x + drift] = fireCooldowns[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    fireCooldowns[y][x] = 0;
+                    moved = true;
+                }
+            }
+
+            // If couldn't move up with drift, try just moving up
+            if (!moved && y - 1 >= 0 && grid[y - 1][x] === PARTICLE_TYPES.EMPTY) {
+                grid[y - 1][x] = PARTICLE_TYPES.FIRE;
+                fireCooldowns[y - 1][x] = fireCooldowns[y][x];
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                fireCooldowns[y][x] = 0;
+                return;
+            }
+
+            // Only attempt to spread if cooldown is 0
+            if (fireCooldowns[y][x] === 0) {
+                // 20% chance to attempt spreading (increased from 10%)
+                if (Math.random() < 0.2) {
+                    const directions = [
+                        [0, -1],  // Up
+                        [-1, 0],  // Left
+                        [1, 0],   // Right
+                        [0, 1],   // Down
+                        [-1, -1], // Diagonals
+                        [1, -1],
+                        [-1, 1],
+                        [1, 1]
+                    ];
+                    shuffleArray(directions);
+
+                    // Try each direction until we find something to burn
+                    for (const [dy, dx] of directions) {
+                        const ny = y + dy;
+                        const nx = x + dx;
+                        if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                            const targetType = grid[ny][nx];
+                            if (targetType === PARTICLE_TYPES.SAND || targetType === PARTICLE_TYPES.WALL) {
+                                grid[ny][nx] = PARTICLE_TYPES.FIRE;
+                                fireCooldowns[ny][nx] = 10; // Reduced cooldown from 15 to 10
+                                break;
+                            }
+                            // Plants are now handled by the heat build-up system in updatePlant
+                        }
+                    }
+                    // Set cooldown for this fire particle
+                    fireCooldowns[y][x] = 10; // Reduced cooldown from 15 to 10
+                }
+            }
+        }
+
+        // Update plant particle
+        function updatePlant(x, y) {
+            // Check for fire to start heat build-up
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.FIRE && plantHeatTimers[y][x] === 0) {
+                            // Start heat build-up with random duration between 5-10 frames (reduced from 15-30)
+                            plantHeatTimers[y][x] = Math.floor(Math.random() * 6) + 5;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Try to convert adjacent water into plants
+            if (Math.random() < 0.075) { // 7.5% chance to attempt growth each frame
+                const directions = [
+                    [0, -1],  // Up
+                    [-1, 0],  // Left
+                    [1, 0],   // Right
+                    [0, 1],   // Down
+                    [-1, -1], // Diagonals
+                    [1, -1],
+                    [-1, 1],
+                    [1, 1]
+                ];
+                shuffleArray(directions);
+
+                // Try each direction until we find water to convert
+                for (const [dy, dx] of directions) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        // Check if the target cell is water and not adjacent to a spout
+                        if (grid[ny][nx] === PARTICLE_TYPES.WATER) {
+                            // Check surrounding cells for spouts
+                            let hasAdjacentSpout = false;
+                            for (let sy = -1; sy <= 1; sy++) {
+                                for (let sx = -1; sx <= 1; sx++) {
+                                    const spy = ny + sy;
+                                    const spx = nx + sx;
+                                    if (spy >= 0 && spy < grid.length && spx >= 0 && spx < grid[0].length) {
+                                        if (grid[spy][spx] === PARTICLE_TYPES.SPOUT) {
+                                            hasAdjacentSpout = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (hasAdjacentSpout) break;
+                            }
+                            
+                            // Only grow if there's no adjacent spout
+                            if (!hasAdjacentSpout) {
+                                grid[ny][nx] = PARTICLE_TYPES.PLANT;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update oil particle
+        function updateOil(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Try to move down with minimal horizontal movement
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.OIL;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.OIL;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                }
+                return;
+            }
+
+            // Check for fire to start heat build-up
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.FIRE && oilHeatTimers[y][x] === 0) {
+                            // Start heat build-up with random duration between 3-8 frames (much faster than plants)
+                            oilHeatTimers[y][x] = Math.floor(Math.random() * 6) + 3;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Enhanced horizontal movement with minimal spread
+            const maxSpread = 1; // Reduced to 1 for more controlled flow
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            let moved = false;
+
+            // Try multiple horizontal positions
+            for (let spread = 1; spread <= maxSpread; spread++) {
+                const testX = x + (direction * spread);
+                if (testX >= 0 && testX < grid[0].length) {
+                    if (grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                        if (Math.random() < 0.2 && y + 1 < grid.length && grid[y + 1][testX] === PARTICLE_TYPES.EMPTY) {
+                            grid[y + 1][testX] = PARTICLE_TYPES.OIL;
+                        } else {
+                            grid[y][testX] = PARTICLE_TYPES.OIL;
+                        }
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+
+            // If couldn't move horizontally, try the other direction
+            if (!moved && Math.random() < 0.5) {
+                const altDirection = -direction;
+                const testX = x + altDirection;
+                if (testX >= 0 && testX < grid[0].length && grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                    grid[y][testX] = PARTICLE_TYPES.OIL;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                }
+            }
+        }
+
+        // Update poison particle
+        function updatePoison(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Check for plants to poison
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.PLANT && poisonTimers[ny][nx] === 0) {
+                            // Start poisoning with random duration between 5-10 frames
+                            poisonTimers[ny][nx] = Math.floor(Math.random() * 6) + 5;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Try to move down first (gravity)
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.POISON;
+                    poisonStates[y + 1][x + drift] = poisonStates[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    poisonStates[y][x] = 0;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.POISON;
+                    poisonStates[y + 1][x] = poisonStates[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    poisonStates[y][x] = 0;
+                }
+                return;
+            }
+
+            // Only attempt horizontal movement every other frame
+            if (Math.random() < 0.5) return;
+
+            // Enhanced horizontal movement with minimal spread
+            const maxSpread = 1;
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            let moved = false;
+
+            // Try multiple horizontal positions
+            for (let spread = 1; spread <= maxSpread; spread++) {
+                const testX = x + (direction * spread);
+                if (testX >= 0 && testX < grid[0].length) {
+                    if (grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                        if (Math.random() < 0.2 && y + 1 < grid.length && grid[y + 1][testX] === PARTICLE_TYPES.EMPTY) {
+                            grid[y + 1][testX] = PARTICLE_TYPES.POISON;
+                            poisonStates[y + 1][testX] = poisonStates[y][x];
+                        } else {
+                            grid[y][testX] = PARTICLE_TYPES.POISON;
+                            poisonStates[y][testX] = poisonStates[y][x];
+                        }
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        poisonStates[y][x] = 0;
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+
+            // If couldn't move horizontally, try the other direction
+            if (!moved && Math.random() < 0.5) {
+                const altDirection = -direction;
+                const testX = x + altDirection;
+                if (testX >= 0 && testX < grid[0].length && grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                    grid[y][testX] = PARTICLE_TYPES.POISON;
+                    poisonStates[y][testX] = poisonStates[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    poisonStates[y][x] = 0;
+                }
+            }
+        }
+
+        // Update dust particle
+        function updateDust(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Dust falls very slowly and drifts
+            if (Math.random() < 0.3) { // Only move 30% of the time
+                if (y + 1 < grid.length && grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                    const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                    if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                        grid[y + 1][x + drift] = PARTICLE_TYPES.DUST;
+                        dustTimers[y + 1][x + drift] = dustTimers[y][x]; // Transfer the timer
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        dustTimers[y][x] = 0;
+                    } else {
+                        grid[y + 1][x] = PARTICLE_TYPES.DUST;
+                        dustTimers[y + 1][x] = dustTimers[y][x]; // Transfer the timer
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        dustTimers[y][x] = 0;
+                    }
+                }
+            }
+        }
+
+        // Update fungus particle
+        function updateFungus(x, y) {
+            // Check for fire to start heat build-up (fungus can burn like plants)
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.FIRE && plantHeatTimers[y][x] === 0) {
+                            // Start heat build-up with random duration between 15-30 frames
+                            plantHeatTimers[y][x] = Math.floor(Math.random() * 16) + 15;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Try to convert adjacent oil and poison into fungus
+            if (Math.random() < 0.075) { // 7.5% chance to attempt growth each frame
+                const directions = [
+                    [0, -1],  // Up
+                    [-1, 0],  // Left
+                    [1, 0],   // Right
+                    [0, 1],   // Down
+                    [-1, -1], // Diagonals
+                    [1, -1],
+                    [-1, 1],
+                    [1, 1]
+                ];
+                shuffleArray(directions);
+
+                // Try each direction until we find oil or poison to convert
+                for (const [dy, dx] of directions) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.OIL || grid[ny][nx] === PARTICLE_TYPES.POISON) {
+                            grid[ny][nx] = PARTICLE_TYPES.FUNGUS;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update nanobot particle
+        function updateNanobot(x, y) {
+            // Skip if we've reached the maximum number of nanobots
+            if (nanobotCount >= MAX_NANOBOTS) {
+                // Just move the nanobot without creating new ones
+                let [dx, dy] = nanobotDirections[y][x];
+                if (dx === 0 && dy === 0) {
+                    // Initialize with a random direction
+                    const angle = Math.random() * Math.PI * 2;
+                    dx = Math.cos(angle);
+                    dy = Math.sin(angle);
+                    nanobotDirections[y][x] = [dx, dy];
+                }
+                
+                // Add some randomness to the movement (flutter effect)
+                dx += (Math.random() - 0.5) * 0.5;
+                dy += (Math.random() - 0.5) * 0.5;
+                
+                // Normalize the direction vector
+                const length = Math.sqrt(dx * dx + dy * dy);
+                if (length > 0) {
+                    dx /= length;
+                    dy /= length;
+                } else {
+                    // If length is zero, set a random direction
+                    const angle = Math.random() * Math.PI * 2;
+                    dx = Math.cos(angle);
+                    dy = Math.sin(angle);
+                }
+                
+                // Look for nearby particles to consume (within a 5-cell radius)
+                const searchRadius = 5;
+                let targetFound = false;
+                let targetX = -1;
+                let targetY = -1;
+                let minDistance = Infinity;
+                
+                // Search in a spiral pattern from the center outward
+                for (let r = 1; r <= searchRadius && !targetFound; r++) {
+                    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                        const checkX = Math.round(x + Math.cos(angle) * r);
+                        const checkY = Math.round(y + Math.sin(angle) * r);
+                        
+                        if (checkX >= 0 && checkX < grid[0].length && checkY >= 0 && checkY < grid.length) {
+                            const particle = grid[checkY][checkX];
+                            if (particle !== PARTICLE_TYPES.EMPTY && particle !== PARTICLE_TYPES.NANOBOT && particle !== PARTICLE_TYPES.WALL) {
+                                // Calculate distance to this particle
+                                const distance = Math.sqrt((checkX - x) ** 2 + (checkY - y) ** 2);
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    targetX = checkX;
+                                    targetY = checkY;
+                                    targetFound = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If a target was found, move towards it
+                if (targetFound) {
+                    // Calculate direction to target
+                    const targetDx = targetX - x;
+                    const targetDy = targetY - y;
+                    const targetLength = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+                    
+                    // Blend current direction with target direction (70% current, 30% target)
+                    dx = dx * 0.7 + (targetDx / targetLength) * 0.3;
+                    dy = dy * 0.7 + (targetDy / targetLength) * 0.3;
+                    
+                    // Normalize again
+                    const newLength = Math.sqrt(dx * dx + dy * dy);
+                    if (newLength > 0) {
+                        dx /= newLength;
+                        dy /= newLength;
+                    }
+                    
+                    // Update direction
+                    nanobotDirections[y][x] = [dx, dy];
+                    
+                    // Try to move in the calculated direction
+                    const newX = Math.round(x + dx);
+                    const newY = Math.round(y + dy);
+                    
+                    if (newX >= 0 && newX < grid[0].length && newY >= 0 && newY < grid.length) {
+                        // If the target cell is empty, move there
+                        if (grid[newY][newX] === PARTICLE_TYPES.EMPTY) {
+                            grid[newY][newX] = PARTICLE_TYPES.NANOBOT;
+                            nanobotDirections[newY][newX] = nanobotDirections[y][x];
+                            grid[y][x] = PARTICLE_TYPES.EMPTY;
+                            nanobotDirections[y][x] = [0, 0];
+                        } 
+                        // If the target cell has a consumable particle, consume it
+                        else if (grid[newY][newX] !== PARTICLE_TYPES.NANOBOT && grid[newY][newX] !== PARTICLE_TYPES.WALL) {
+                            // Consume the particle (delete it)
+                            grid[newY][newX] = PARTICLE_TYPES.EMPTY;
+                        }
+                    }
+                } else {
+                    // Try to move in the calculated direction
+                    const newX = Math.round(x + dx);
+                    const newY = Math.round(y + dy);
+                    
+                    if (newX >= 0 && newX < grid[0].length && newY >= 0 && newY < grid.length) {
+                        if (grid[newY][newX] === PARTICLE_TYPES.EMPTY) {
+                            grid[newY][newX] = PARTICLE_TYPES.NANOBOT;
+                            nanobotDirections[newY][newX] = nanobotDirections[y][x];
+                            grid[y][x] = PARTICLE_TYPES.EMPTY;
+                            nanobotDirections[y][x] = [0, 0];
+                        }
+                    } else {
+                        // Hit a boundary, change direction
+                        nanobotDirections[y][x] = [(Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2];
+                    }
+                }
+                
+                // Every 30 frames, do a global search for food
+                if (Math.random() < 0.03) { // 3% chance each frame
+                    // Look for food anywhere on the canvas
+                    let globalFoodFound = false;
+                    let globalFoodX = -1;
+                    let globalFoodY = -1;
+                    let globalFoodDistance = Infinity;
+                    
+                    // Search the entire canvas
+                    for (let ny = 0; ny < grid.length; ny++) {
+                        for (let nx = 0; nx < grid[0].length; nx++) {
+                            const particle = grid[ny][nx];
+                            if (particle !== PARTICLE_TYPES.EMPTY && particle !== PARTICLE_TYPES.NANOBOT && particle !== PARTICLE_TYPES.WALL) {
+                                // Calculate distance to this particle
+                                const distance = Math.sqrt((nx - x) ** 2 + (ny - y) ** 2);
+                                if (distance < globalFoodDistance) {
+                                    globalFoodDistance = distance;
+                                    globalFoodX = nx;
+                                    globalFoodY = ny;
+                                    globalFoodFound = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If food found globally, move toward it
+                    if (globalFoodFound) {
+                        // Calculate direction to food
+                        const foodDx = globalFoodX - x;
+                        const foodDy = globalFoodY - y;
+                        const foodLength = Math.sqrt(foodDx * foodDx + foodDy * foodDy);
+                        
+                        // Set direction toward food with higher weight (80% food, 20% current)
+                        dx = dx * 0.2 + (foodDx / foodLength) * 0.8;
+                        dy = dy * 0.2 + (foodDy / foodLength) * 0.8;
+                        
+                        // Normalize
+                        const newLength = Math.sqrt(dx * dx + dy * dy);
+                        if (newLength > 0) {
+                            dx /= newLength;
+                            dy /= newLength;
+                        }
+                        
+                        // Update direction
+                        nanobotDirections[y][x] = [dx, dy];
+                    }
+                }
+                
+                return;
+            }
+            
+            // Get current direction or initialize a random one
+            let [dx, dy] = nanobotDirections[y][x];
+            if (dx === 0 && dy === 0) {
+                // Initialize with a random direction
+                const angle = Math.random() * Math.PI * 2;
+                dx = Math.cos(angle);
+                dy = Math.sin(angle);
+                nanobotDirections[y][x] = [dx, dy];
+            }
+            
+            // Add some randomness to the movement (flutter effect)
+            dx += (Math.random() - 0.5) * 0.5;
+            dy += (Math.random() - 0.5) * 0.5;
+            
+            // Normalize the direction vector
+            const length = Math.sqrt(dx * dx + dy * dy);
+            if (length > 0) {
+                dx /= length;
+                dy /= length;
+            } else {
+                // If length is zero, set a random direction
+                const angle = Math.random() * Math.PI * 2;
+                dx = Math.cos(angle);
+                dy = Math.sin(angle);
+            }
+            
+            // Calculate swarm center (average position of all nanobots)
+            let totalX = 0;
+            let totalY = 0;
+            let count = 0;
+            
+            for (let ny = 0; ny < grid.length; ny++) {
+                for (let nx = 0; nx < grid[0].length; nx++) {
+                    if (grid[ny][nx] === PARTICLE_TYPES.NANOBOT) {
+                        totalX += nx;
+                        totalY += ny;
+                        count++;
+                    }
+                }
+            }
+            
+            if (count > 0) {
+                nanobotSwarmCenter = [totalX / count, totalY / count];
+            }
+            
+            // Look for nearby particles to consume (within a 5-cell radius)
+            const searchRadius = 5;
+            let targetFound = false;
+            let targetX = -1;
+            let targetY = -1;
+            let minDistance = Infinity;
+            
+            // Search in a spiral pattern from the center outward
+            for (let r = 1; r <= searchRadius && !targetFound; r++) {
+                for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                    const checkX = Math.round(x + Math.cos(angle) * r);
+                    const checkY = Math.round(y + Math.sin(angle) * r);
+                    
+                    if (checkX >= 0 && checkX < grid[0].length && checkY >= 0 && checkY < grid.length) {
+                        const particle = grid[checkY][checkX];
+                        if (particle !== PARTICLE_TYPES.EMPTY && particle !== PARTICLE_TYPES.NANOBOT && particle !== PARTICLE_TYPES.WALL) {
+                            // Calculate distance to this particle
+                            const distance = Math.sqrt((checkX - x) ** 2 + (checkY - y) ** 2);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                targetX = checkX;
+                                targetY = checkY;
+                                targetFound = true;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // If a target was found, move towards it
+            if (targetFound) {
+                // Calculate direction to target
+                const targetDx = targetX - x;
+                const targetDy = targetY - y;
+                const targetLength = Math.sqrt(targetDx * targetDx + targetDy * targetDy);
+                
+                // Blend current direction with target direction (70% current, 30% target)
+                dx = dx * 0.7 + (targetDx / targetLength) * 0.3;
+                dy = dy * 0.7 + (targetDy / targetLength) * 0.3;
+                
+                // Normalize again
+                const newLength = Math.sqrt(dx * dx + dy * dy);
+                if (newLength > 0) {
+                    dx /= newLength;
+                    dy /= newLength;
+                }
+                
+                // Update direction
+                nanobotDirections[y][x] = [dx, dy];
+                
+                // Try to move in the calculated direction
+                const newX = Math.round(x + dx);
+                const newY = Math.round(y + dy);
+                
+                if (newX >= 0 && newX < grid[0].length && newY >= 0 && newY < grid.length) {
+                    // If the target cell is empty, move there
+                    if (grid[newY][newX] === PARTICLE_TYPES.EMPTY) {
+                        grid[newY][newX] = PARTICLE_TYPES.NANOBOT;
+                        nanobotDirections[newY][newX] = nanobotDirections[y][x];
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        nanobotDirections[y][x] = [0, 0];
+                    } 
+                    // If the target cell has a consumable particle, consume it
+                    else if (grid[newY][newX] !== PARTICLE_TYPES.NANOBOT && grid[newY][newX] !== PARTICLE_TYPES.WALL) {
+                        // Consume the particle (delete it)
+                        grid[newY][newX] = PARTICLE_TYPES.EMPTY;
+                    }
+                }
+            } else {
+                // No target found, move with swarm behavior
+                
+                // Calculate direction to swarm center
+                const swarmDx = nanobotSwarmCenter[0] - x;
+                const swarmDy = nanobotSwarmCenter[1] - y;
+                const swarmDist = Math.sqrt(swarmDx * swarmDx + swarmDy * swarmDy);
+                
+                // If too far from swarm center, move toward it
+                if (swarmDist > 10) {
+                    // Blend current direction with direction to swarm center (60% current, 40% swarm)
+                    dx = dx * 0.6 + (swarmDx / swarmDist) * 0.4;
+                    dy = dy * 0.6 + (swarmDy / swarmDist) * 0.4;
+                } else {
+                    // If close to swarm center, add some random movement to create swarm effect
+                    dx += (Math.random() - 0.5) * 0.8;
+                    dy += (Math.random() - 0.5) * 0.8;
+                }
+                
+                // Normalize again
+                const newLength = Math.sqrt(dx * dx + dy * dy);
+                if (newLength > 0) {
+                    dx /= newLength;
+                    dy /= newLength;
+                } else {
+                    // If length is zero, set a random direction
+                    const angle = Math.random() * Math.PI * 2;
+                    dx = Math.cos(angle);
+                    dy = Math.sin(angle);
+                }
+                
+                // Update direction
+                nanobotDirections[y][x] = [dx, dy];
+                
+                // Try to move in the calculated direction
+                const newX = Math.round(x + dx);
+                const newY = Math.round(y + dy);
+                
+                if (newX >= 0 && newX < grid[0].length && newY >= 0 && newY < grid.length) {
+                    if (grid[newY][newX] === PARTICLE_TYPES.EMPTY) {
+                        grid[newY][newX] = PARTICLE_TYPES.NANOBOT;
+                        nanobotDirections[newY][newX] = nanobotDirections[y][x];
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        nanobotDirections[y][x] = [0, 0];
+                    }
+                } else {
+                    // Hit a boundary, change direction
+                    nanobotDirections[y][x] = [(Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2];
+                }
+            }
+            
+            // Periodically check for food in a wider area (every 10 frames)
+            if (Math.random() < 0.1) { // 10% chance each frame
+                // Look for food in a wider area (10 cells)
+                const wideSearchRadius = 10;
+                let foodFound = false;
+                let foodX = -1;
+                let foodY = -1;
+                let foodDistance = Infinity;
+                
+                // Search in a wider area
+                for (let r = 1; r <= wideSearchRadius && !foodFound; r++) {
+                    for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                        const checkX = Math.round(x + Math.cos(angle) * r);
+                        const checkY = Math.round(y + Math.sin(angle) * r);
+                        
+                        if (checkX >= 0 && checkX < grid[0].length && checkY >= 0 && checkY < grid.length) {
+                            const particle = grid[checkY][checkX];
+                            if (particle !== PARTICLE_TYPES.EMPTY && particle !== PARTICLE_TYPES.NANOBOT && particle !== PARTICLE_TYPES.WALL) {
+                                // Calculate distance to this particle
+                                const distance = Math.sqrt((checkX - x) ** 2 + (checkY - y) ** 2);
+                                if (distance < foodDistance) {
+                                    foodDistance = distance;
+                                    foodX = checkX;
+                                    foodY = checkY;
+                                    foodFound = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If food found in wider area, move toward it
+                if (foodFound) {
+                    // Calculate direction to food
+                    const foodDx = foodX - x;
+                    const foodDy = foodY - y;
+                    const foodLength = Math.sqrt(foodDx * foodDx + foodDy * foodDy);
+                    
+                    // Set direction toward food
+                    dx = foodDx / foodLength;
+                    dy = foodDy / foodLength;
+                    
+                    // Add some randomness
+                    dx += (Math.random() - 0.5) * 0.3;
+                    dy += (Math.random() - 0.5) * 0.3;
+                    
+                    // Normalize
+                    const newLength = Math.sqrt(dx * dx + dy * dy);
+                    if (newLength > 0) {
+                        dx /= newLength;
+                        dy /= newLength;
+                    }
+                    
+                    // Update direction
+                    nanobotDirections[y][x] = [dx, dy];
+                }
+            }
+            
+            // Every 30 frames, do a global search for food
+            if (Math.random() < 0.03) { // 3% chance each frame
+                // Look for food anywhere on the canvas
+                let globalFoodFound = false;
+                let globalFoodX = -1;
+                let globalFoodY = -1;
+                let globalFoodDistance = Infinity;
+                
+                // Search the entire canvas
+                for (let ny = 0; ny < grid.length; ny++) {
+                    for (let nx = 0; nx < grid[0].length; nx++) {
+                        const particle = grid[ny][nx];
+                        if (particle !== PARTICLE_TYPES.EMPTY && particle !== PARTICLE_TYPES.NANOBOT && particle !== PARTICLE_TYPES.WALL) {
+                            // Calculate distance to this particle
+                            const distance = Math.sqrt((nx - x) ** 2 + (ny - y) ** 2);
+                            if (distance < globalFoodDistance) {
+                                globalFoodDistance = distance;
+                                globalFoodX = nx;
+                                globalFoodY = ny;
+                                globalFoodFound = true;
+                            }
+                        }
+                    }
+                }
+                
+                // If food found globally, move toward it
+                if (globalFoodFound) {
+                    // Calculate direction to food
+                    const foodDx = globalFoodX - x;
+                    const foodDy = globalFoodY - y;
+                    const foodLength = Math.sqrt(foodDx * foodDx + foodDy * foodDy);
+                    
+                    // Set direction toward food with higher weight (80% food, 20% current)
+                    dx = dx * 0.2 + (foodDx / foodLength) * 0.8;
+                    dy = dy * 0.2 + (foodDy / foodLength) * 0.8;
+                    
+                    // Normalize
+                    const newLength = Math.sqrt(dx * dx + dy * dy);
+                    if (newLength > 0) {
+                        dx /= newLength;
+                        dy /= newLength;
+                    }
+                    
+                    // Update direction
+                    nanobotDirections[y][x] = [dx, dy];
+                }
+            }
+        }
+
+        // Update cryo particle
+        function updateCryo(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Check for water to freeze
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.WATER) {
+                            // Freeze the water into ice
+                            grid[ny][nx] = PARTICLE_TYPES.ICE;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Try to move down with minimal horizontal movement (like sand)
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.CRYO;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.CRYO;
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                }
+                return;
+            }
+
+            // Try to move diagonally with minimal spread
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            if (x + direction >= 0 && x + direction < grid[0].length &&
+                grid[y + 1][x + direction] === PARTICLE_TYPES.EMPTY) {
+                grid[y + 1][x + direction] = PARTICLE_TYPES.CRYO;
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+            }
+        }
+
+        // Update ice particle
+        function updateIce(x, y) {
+            // Check for fire to melt
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.FIRE) {
+                            // Melt the ice back into water
+                            grid[y][x] = PARTICLE_TYPES.WATER;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Ice doesn't move, it stays in place
+            // But it can freeze adjacent water (spread like plants)
+            if (Math.random() < 0.075) { // 7.5% chance to attempt freezing each frame
+                const directions = [
+                    [0, -1],  // Up
+                    [-1, 0],  // Left
+                    [1, 0],   // Right
+                    [0, 1],   // Down
+                    [-1, -1], // Diagonals
+                    [1, -1],
+                    [-1, 1],
+                    [1, 1]
+                ];
+                shuffleArray(directions);
+
+                // Try each direction until we find water to freeze
+                for (const [dy, dx] of directions) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.WATER) {
+                            grid[ny][nx] = PARTICLE_TYPES.ICE;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update lava particle
+        function updateLava(x, y) {
+            // Check for water to instantly turn to stone
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.WATER) {
+                            // Turn to stone when touching water
+                            grid[y][x] = PARTICLE_TYPES.STONE;
+                            lavaCoolingTimers[y][x] = 0;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Check for organic matter to burn
+            let isBurning = false;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.PLANT || 
+                            grid[ny][nx] === PARTICLE_TYPES.FUNGUS) {
+                            // Start burning the organic matter
+                            grid[ny][nx] = PARTICLE_TYPES.FIRE;
+                            fireCooldowns[ny][nx] = 15;
+                            isBurning = true;
+                        }
+                    }
+                }
+            }
+
+            // If burning organic matter, don't cool down
+            if (isBurning) {
+                lavaCoolingTimers[y][x] = 0;
+            } else {
+                // Increment cooling timer
+                lavaCoolingTimers[y][x]++;
+                
+                // Check if lava should turn to stone (after about 5 seconds at 60 FPS)
+                if (lavaCoolingTimers[y][x] > 300) {
+                    // Check if there's lava above this cell
+                    let hasLavaAbove = false;
+                    for (let checkY = y - 1; checkY >= 0; checkY--) {
+                        if (grid[checkY][x] === PARTICLE_TYPES.LAVA) {
+                            hasLavaAbove = true;
+                            break;
+                        }
+                    }
+                    
+                    // Turn to stone if there's lava above or if it's been cooling for a while
+                    if (hasLavaAbove || lavaCoolingTimers[y][x] > 450) {
+                        grid[y][x] = PARTICLE_TYPES.STONE;
+                        lavaCoolingTimers[y][x] = 0;
+                        return;
+                    }
+                }
+            }
+
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                lavaCoolingTimers[y][x] = 0;
+                return;
+            }
+
+            // Try to move down with minimal horizontal movement
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.LAVA;
+                    lavaCoolingTimers[y + 1][x + drift] = lavaCoolingTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    lavaCoolingTimers[y][x] = 0;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.LAVA;
+                    lavaCoolingTimers[y + 1][x] = lavaCoolingTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    lavaCoolingTimers[y][x] = 0;
+                }
+                return;
+            }
+
+            // Enhanced horizontal movement with minimal spread (thicker than water)
+            const maxSpread = 1; // Reduced spread for thicker flow
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            let moved = false;
+
+            // Try multiple horizontal positions
+            for (let spread = 1; spread <= maxSpread; spread++) {
+                const testX = x + (direction * spread);
+                if (testX >= 0 && testX < grid[0].length) {
+                    if (grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                        if (Math.random() < 0.1 && y + 1 < grid.length && grid[y + 1][testX] === PARTICLE_TYPES.EMPTY) {
+                            grid[y + 1][testX] = PARTICLE_TYPES.LAVA;
+                            lavaCoolingTimers[y + 1][testX] = lavaCoolingTimers[y][x];
+                        } else {
+                            grid[y][testX] = PARTICLE_TYPES.LAVA;
+                            lavaCoolingTimers[y][testX] = lavaCoolingTimers[y][x];
+                        }
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        lavaCoolingTimers[y][x] = 0;
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+
+            // If couldn't move horizontally, try the other direction
+            if (!moved && Math.random() < 0.5) {
+                const altDirection = -direction;
+                const testX = x + altDirection;
+                if (testX >= 0 && testX < grid[0].length && grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                    grid[y][testX] = PARTICLE_TYPES.LAVA;
+                    lavaCoolingTimers[y][testX] = lavaCoolingTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    lavaCoolingTimers[y][x] = 0;
+                }
+            }
+        }
+
+        // Update spout particles
+        function updateSpouts() {
+            spoutTimer++;
+            
+            // Emit water every 5 frames (increased from 15) for more consistent flow
+            if (spoutTimer % 5 !== 0) return;
+            
+            const rows = grid.length;
+            const cols = grid[0].length;
+            
+            // Find all spouts and emit water below them
+            for (let y = 0; y < rows - 1; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (grid[y][x] === PARTICLE_TYPES.SPOUT) {
+                        // Increased emission chance to 60% for more consistent flow
+                        if (Math.random() < 0.6) {
+                            // Check if there's space below the spout
+                            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                                grid[y + 1][x] = PARTICLE_TYPES.WATER;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw the grid
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Create an off-screen canvas for better performance
+            const offscreen = document.createElement('canvas');
+            offscreen.width = canvas.width;
+            offscreen.height = canvas.height;
+            const offCtx = offscreen.getContext('2d');
+
+            // Draw to off-screen canvas
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[0].length; x++) {
+                    const particle = grid[y][x];
+                    if (particle !== PARTICLE_TYPES.EMPTY) {
+                        // Draw base particle
+                        offCtx.fillStyle = getParticleColor(particle);
+                        offCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        
+                        // Enhanced fire effect with bloom and smoke
+                        if (particle === PARTICLE_TYPES.FIRE) {
+                            // Draw bloom effect
+                            const bloomSize = 2.5; // Increased from 1.5
+                            const bloomIntensity = 0.4; // Increased from 0.3
+                            
+                            // Outer glow
+                            offCtx.fillStyle = `rgba(255, 140, 0, ${bloomIntensity * 0.5})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (bloomSize - 1) / 2),
+                                (y * CELL_SIZE) - (CELL_SIZE * (bloomSize - 1) / 2),
+                                CELL_SIZE * bloomSize,
+                                CELL_SIZE * bloomSize
+                            );
+                            
+                            // Middle glow
+                            offCtx.fillStyle = `rgba(255, 200, 0, ${bloomIntensity * 0.7})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (bloomSize * 0.7 - 1) / 2),
+                                (y * CELL_SIZE) - (CELL_SIZE * (bloomSize * 0.7 - 1) / 2),
+                                CELL_SIZE * bloomSize * 0.7,
+                                CELL_SIZE * bloomSize * 0.7
+                            );
+                            
+                            // Inner glow
+                            offCtx.fillStyle = `rgba(255, 255, 200, ${bloomIntensity})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (bloomSize * 0.4 - 1) / 2),
+                                (y * CELL_SIZE) - (CELL_SIZE * (bloomSize * 0.4 - 1) / 2),
+                                CELL_SIZE * bloomSize * 0.4,
+                                CELL_SIZE * bloomSize * 0.4
+                            );
+                            
+                            // Add subtle smoke effect (30% chance)
+                            if (Math.random() < 0.3) {
+                                const smokeSize = 1.2;
+                                const smokeIntensity = 0.2;
+                                const smokeOffset = (Math.random() - 0.5) * 2; // Random horizontal drift
+                                
+                                offCtx.fillStyle = `rgba(50, 50, 50, ${smokeIntensity})`;
+                                offCtx.fillRect(
+                                    (x * CELL_SIZE) + smokeOffset,
+                                    (y * CELL_SIZE) - CELL_SIZE,
+                                    CELL_SIZE * smokeSize,
+                                    CELL_SIZE * smokeSize
+                                );
+                            }
+                        }
+                        // Draw heat effect on plants that are about to burn
+                        else if ((particle === PARTICLE_TYPES.PLANT || particle === PARTICLE_TYPES.FUNGUS) && plantHeatTimers[y][x] > 0) {
+                            // Calculate heat intensity based on remaining timer
+                            const heatIntensity = plantHeatTimers[y][x] / 30; // 30 is max timer
+                            const glowSize = 1.5; // Size multiplier for the glow effect
+                            
+                            // Draw larger glow effect
+                            offCtx.fillStyle = `rgba(255, 140, 0, ${0.3 * (1 - heatIntensity)})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 2),
+                                (y * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 2),
+                                CELL_SIZE * glowSize,
+                                CELL_SIZE * glowSize
+                            );
+                            
+                            // Draw brighter center
+                            offCtx.fillStyle = `rgba(255, 200, 0, ${0.4 * (1 - heatIntensity)})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 4),
+                                (y * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 4),
+                                CELL_SIZE * (glowSize * 0.5),
+                                CELL_SIZE * (glowSize * 0.5)
+                            );
+                        }
+                        // Draw heat effect on oil that is about to burn
+                        else if (particle === PARTICLE_TYPES.OIL && oilHeatTimers[y][x] > 0) {
+                            // Calculate heat intensity based on remaining timer
+                            const heatIntensity = oilHeatTimers[y][x] / 8; // 8 is max timer
+                            const glowSize = 1.3; // Slightly smaller glow for oil
+                            
+                            // Draw larger glow effect
+                            offCtx.fillStyle = `rgba(255, 140, 0, ${0.5 * (1 - heatIntensity)})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 2),
+                                (y * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 2),
+                                CELL_SIZE * glowSize,
+                                CELL_SIZE * glowSize
+                            );
+                            
+                            // Draw brighter center
+                            offCtx.fillStyle = `rgba(255, 200, 0, ${0.6 * (1 - heatIntensity)})`;
+                            offCtx.fillRect(
+                                (x * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 4),
+                                (y * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 4),
+                                CELL_SIZE * (glowSize * 0.5),
+                                CELL_SIZE * (glowSize * 0.5)
+                            );
+                        }
+                        // Draw poison effect on plants
+                        else if (particle === PARTICLE_TYPES.PLANT && poisonTimers[y][x] > 0) {
+                            const poisonIntensity = poisonTimers[y][x] / 10; // 10 is max timer
+                            offCtx.fillStyle = `rgba(128, 0, 128, ${0.4 * (1 - poisonIntensity)})`; // Purple fade
+                            offCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                        // Draw transforming poison
+                        else if (particle === PARTICLE_TYPES.POISON && poisonStates[y][x] === 1) {
+                            const transformIntensity = poisonTimers[y][x] / 10;
+                            offCtx.fillStyle = `rgba(128, 128, 128, ${0.5 * (1 - transformIntensity)})`; // Gray fade
+                            offCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                        // Draw dust with fade effect based on remaining lifetime
+                        else if (particle === PARTICLE_TYPES.DUST && dustTimers[y][x] > 0) {
+                            const dustIntensity = dustTimers[y][x] / 60; // 60 is max timer
+                            offCtx.fillStyle = `rgba(169, 169, 169, ${0.3 + (0.7 * dustIntensity)})`; // Gray with fade
+                            offCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                        // Draw nanobot count
+                        if (particle === PARTICLE_TYPES.NANOBOT) {
+                            // Draw a small indicator for nanobots
+                            offCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                            offCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                        // Draw corrosion effect
+                        if (acidCorrosionTimers[y][x] > 0) {
+                            const corrosionIntensity = acidCorrosionTimers[y][x] / 30; // 30 is max timer
+                            offCtx.fillStyle = `rgba(255, 0, 0, ${0.3 * (1 - corrosionIntensity)})`; // Red fade
+                            offCtx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                    }
+                }
+            }
+
+            // Copy off-screen canvas to main canvas
+            ctx.drawImage(offscreen, 0, 0);
+            
+            // Draw nanobot count in the corner
+            ctx.fillStyle = 'white';
+            ctx.font = '14px Arial';
+            ctx.fillText(`Nanobots: ${nanobotCount}/${MAX_NANOBOTS}`, 10, 20);
+        }
+
+        // Get color for particle type
+        function getParticleColor(type) {
+            switch (type) {
+                case PARTICLE_TYPES.WALL:
+                    return '#666';
+                case PARTICLE_TYPES.SAND:
+                    return '#d2b48c';
+                case PARTICLE_TYPES.WATER:
+                    return '#4169e1';
+                case PARTICLE_TYPES.FIRE:
+                    return '#ff8c00';
+                case PARTICLE_TYPES.PLANT:
+                    return '#228b22';
+                case PARTICLE_TYPES.SPOUT:
+                    return '#1e90ff';
+                case PARTICLE_TYPES.OIL:
+                    return '#8B4513';
+                case PARTICLE_TYPES.POISON:
+                    return '#800080'; // Purple
+                case PARTICLE_TYPES.DUST:
+                    return '#A9A9A9'; // Gray
+                case PARTICLE_TYPES.FUNGUS:
+                    return '#3A2A1A'; // Brownish black
+                case PARTICLE_TYPES.NANOBOT:
+                    return '#A0A0A0'; // Dull metal gray
+                case PARTICLE_TYPES.CRYO:
+                    return '#00FFFF'; // Cyan
+                case PARTICLE_TYPES.ICE:
+                    return '#00BFFF'; // Deep Sky Blue
+                case PARTICLE_TYPES.LAVA:
+                    return '#FF4500'; // Orange Red
+                case PARTICLE_TYPES.STONE:
+                    return '#696969'; // Dim Gray
+                case PARTICLE_TYPES.ACID:
+                    return '#00FF00'; // Bright green
+                default:
+                    return '#000';
+            }
+        }
+
+        // Utility function to shuffle array
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Function to clear the canvas
+        function clearCanvas() {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            
+            // Reset all grids
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    fireCooldowns[y][x] = 0;
+                    plantHeatTimers[y][x] = 0;
+                    oilHeatTimers[y][x] = 0;
+                    poisonTimers[y][x] = 0;
+                    poisonStates[y][x] = 0;
+                    dustTimers[y][x] = 0;
+                    nanobotDirections[y][x] = [0, 0];
+                    lavaCoolingTimers[y][x] = 0;
+                    acidCorrosionTimers[y][x] = 0;
+                }
+            }
+            
+            // Reset nanobot count
+            nanobotCount = 0;
+            
+            // Reset spout timer
+            spoutTimer = 0;
+        }
+
+        // Initialize the game when the page loads
+        window.addEventListener('load', init);
+
+        // Update acid particle
+        function updateAcid(x, y) {
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                acidCorrosionTimers[y][x] = 0;
+                return;
+            }
+
+            // Check for solid particles to corrode
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        const targetType = grid[ny][nx];
+                        // Only corrode solid particles (not liquids or empty spaces)
+                        if (targetType !== PARTICLE_TYPES.EMPTY && 
+                            targetType !== PARTICLE_TYPES.WATER && 
+                            targetType !== PARTICLE_TYPES.OIL && 
+                            targetType !== PARTICLE_TYPES.POISON && 
+                            targetType !== PARTICLE_TYPES.LAVA && 
+                            targetType !== PARTICLE_TYPES.ACID) {
+                            
+                            // Start or increment corrosion timer
+                            if (acidCorrosionTimers[ny][nx] === 0) {
+                                // Different corrosion rates for different materials
+                                switch (targetType) {
+                                    case PARTICLE_TYPES.WALL:
+                                        acidCorrosionTimers[ny][nx] = 30; // Slowest
+                                        break;
+                                    case PARTICLE_TYPES.STONE:
+                                        acidCorrosionTimers[ny][nx] = 25;
+                                        break;
+                                    case PARTICLE_TYPES.SAND:
+                                        acidCorrosionTimers[ny][nx] = 20;
+                                        break;
+                                    case PARTICLE_TYPES.PLANT:
+                                    case PARTICLE_TYPES.FUNGUS:
+                                        acidCorrosionTimers[ny][nx] = 15;
+                                        break;
+                                    case PARTICLE_TYPES.ICE:
+                                        acidCorrosionTimers[ny][nx] = 10;
+                                        break;
+                                    default:
+                                        acidCorrosionTimers[ny][nx] = 20;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Try to move down with minimal horizontal movement
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.ACID;
+                    acidCorrosionTimers[y + 1][x + drift] = acidCorrosionTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    acidCorrosionTimers[y][x] = 0;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.ACID;
+                    acidCorrosionTimers[y + 1][x] = acidCorrosionTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    acidCorrosionTimers[y][x] = 0;
+                }
+                return;
+            }
+
+            // Enhanced horizontal movement with minimal spread
+            const maxSpread = 1;
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            let moved = false;
+
+            // Try multiple horizontal positions
+            for (let spread = 1; spread <= maxSpread; spread++) {
+                const testX = x + (direction * spread);
+                if (testX >= 0 && testX < grid[0].length) {
+                    if (grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                        if (Math.random() < 0.2 && y + 1 < grid.length && grid[y + 1][testX] === PARTICLE_TYPES.EMPTY) {
+                            grid[y + 1][testX] = PARTICLE_TYPES.ACID;
+                            acidCorrosionTimers[y + 1][testX] = acidCorrosionTimers[y][x];
+                        } else {
+                            grid[y][testX] = PARTICLE_TYPES.ACID;
+                            acidCorrosionTimers[y][testX] = acidCorrosionTimers[y][x];
+                        }
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                        acidCorrosionTimers[y][x] = 0;
+                        moved = true;
+                        break;
+                    }
+                }
+            }
+
+            // If couldn't move horizontally, try the other direction
+            if (!moved && Math.random() < 0.5) {
+                const altDirection = -direction;
+                const testX = x + altDirection;
+                if (testX >= 0 && testX < grid[0].length && grid[y][testX] === PARTICLE_TYPES.EMPTY) {
+                    grid[y][testX] = PARTICLE_TYPES.ACID;
+                    acidCorrosionTimers[y][testX] = acidCorrosionTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    acidCorrosionTimers[y][x] = 0;
+                }
+            }
+        }
+
+        // Chat functionality
+        const chatBox = document.getElementById('chatBox');
+        const activeComments = chatBox.querySelector('.active-comments');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const exportButton = document.getElementById('exportButton');
+        const hiddenCommentsHeader = document.getElementById('hiddenCommentsHeader');
+        const hiddenCommentsContent = document.getElementById('hiddenCommentsContent');
+        const hiddenCountSpan = document.querySelector('.hidden-count');
+
+        // Export comments to text file
+        function exportComments() {
+            const activeCommentsList = Array.from(activeComments.children).map(comment => {
+                const text = comment.querySelector('.comment-text').textContent;
+                const timestamp = comment.querySelector('.timestamp').textContent;
+                return `[${timestamp}] ${text}`;
+            });
+
+            const hiddenCommentsList = Array.from(hiddenCommentsContent.children).map(comment => {
+                const text = comment.querySelector('.comment-text').textContent;
+                const timestamp = comment.querySelector('.timestamp').textContent;
+                return `[${timestamp}] ${text} (hidden)`;
+            });
+
+            const allComments = [...activeCommentsList, ...hiddenCommentsList].join('\n\n');
+            const blob = new Blob([allComments], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `element_ideas_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        // Event listener for export button
+        exportButton.addEventListener('click', exportComments);
+
+        // Toggle hidden comments section
+        hiddenCommentsHeader.addEventListener('click', () => {
+            hiddenCommentsContent.classList.toggle('expanded');
+        });
+
+        // Hide a comment
+        function hideComment(commentElement) {
+            const hiddenComment = commentElement.cloneNode(true);
+            const restoreButton = document.createElement('button');
+            restoreButton.className = 'restore-button';
+            restoreButton.textContent = '↺ Restore';
+            restoreButton.onclick = () => restoreComment(hiddenComment);
+            
+            // Remove the hide button from the hidden comment
+            const hideButton = hiddenComment.querySelector('.hide-button');
+            if (hideButton) {
+                hideButton.remove();
+            }
+            
+            // Add the restore button
+            hiddenComment.appendChild(restoreButton);
+            
+            // Add to hidden comments
+            hiddenCommentsContent.appendChild(hiddenComment);
+            
+            // Remove from active comments
+            commentElement.remove();
+            
+            // Update hidden count
+            updateHiddenCount();
+            
+            // Save state
+            saveComments();
+        }
+
+        // Restore a comment
+        function restoreComment(hiddenComment) {
+            const restoredComment = hiddenComment.cloneNode(true);
+            
+            // Remove the restore button
+            const restoreButton = restoredComment.querySelector('.restore-button');
+            if (restoreButton) {
+                restoreButton.remove();
+            }
+            
+            // Add hide button back
+            const hideButton = document.createElement('button');
+            hideButton.className = 'hide-button';
+            hideButton.textContent = '×';
+            hideButton.onclick = () => hideComment(restoredComment);
+            restoredComment.appendChild(hideButton);
+            
+            // Add to active comments
+            activeComments.insertBefore(restoredComment, activeComments.firstChild);
+            
+            // Remove from hidden comments
+            hiddenComment.remove();
+            
+            // Update hidden count
+            updateHiddenCount();
+            
+            // Save state
+            saveComments();
+        }
+
+        // Update hidden comments count
+        function updateHiddenCount() {
+            const count = hiddenCommentsContent.children.length;
+            hiddenCountSpan.textContent = `(${count})`;
+        }
+
+        // Load comments from localStorage
+        function loadComments() {
+            const data = JSON.parse(localStorage.getItem('elementComments') || '{"active": [], "hidden": []}');
+            
+            // Load active comments
+            activeComments.innerHTML = '';
+            data.active.reverse().forEach(comment => {
+                addCommentToChat(comment.text, comment.timestamp, false);
+            });
+            
+            // Load hidden comments
+            hiddenCommentsContent.innerHTML = '';
+            data.hidden.forEach(comment => {
+                const hiddenComment = document.createElement('div');
+                hiddenComment.className = 'comment';
+                hiddenComment.innerHTML = `
+                    <div class="comment-text">${comment.text}</div>
+                    <div class="timestamp">${comment.timestamp}</div>
+                `;
+                const restoreButton = document.createElement('button');
+                restoreButton.className = 'restore-button';
+                restoreButton.textContent = '↺ Restore';
+                restoreButton.onclick = () => restoreComment(hiddenComment);
+                hiddenComment.appendChild(restoreButton);
+                hiddenCommentsContent.appendChild(hiddenComment);
+            });
+            
+            updateHiddenCount();
+        }
+
+        // Save comments to localStorage
+        function saveComments() {
+            const activeCommentsList = Array.from(activeComments.children).map(comment => ({
+                text: comment.querySelector('.comment-text').textContent,
+                timestamp: comment.querySelector('.timestamp').textContent
+            })).reverse();
+            
+            const hiddenCommentsList = Array.from(hiddenCommentsContent.children).map(comment => ({
+                text: comment.querySelector('.comment-text').textContent,
+                timestamp: comment.querySelector('.timestamp').textContent
+            }));
+            
+            localStorage.setItem('elementComments', JSON.stringify({
+                active: activeCommentsList,
+                hidden: hiddenCommentsList
+            }));
+        }
+
+        // Add a comment to the chat box
+        function addCommentToChat(text, timestamp = new Date().toLocaleString(), save = true) {
+            const commentDiv = document.createElement('div');
+            commentDiv.className = 'comment';
+            commentDiv.innerHTML = `
+                <div class="comment-text">${text}</div>
+                <div class="timestamp">${timestamp}</div>
+            `;
+            
+            // Add hide button
+            const hideButton = document.createElement('button');
+            hideButton.className = 'hide-button';
+            hideButton.textContent = '×';
+            hideButton.onclick = () => hideComment(commentDiv);
+            commentDiv.appendChild(hideButton);
+            
+            // Insert new comment at the top
+            chatBox.insertBefore(commentDiv, chatBox.firstChild);
+            
+            if (save) {
+                saveComments();
+            }
+        }
+
+        // Handle sending messages
+        function handleSendMessage() {
+            const text = messageInput.value.trim();
+            if (text) {
+                addCommentToChat(text);
+                messageInput.value = '';
+            }
+        }
+
+        // Event listeners for chat
+        sendButton.addEventListener('click', handleSendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+
+        // Load comments when the page loads
+        window.addEventListener('load', () => {
+            init();
+            loadComments();
+        });
+    </script>
+</body>
+</html> 
