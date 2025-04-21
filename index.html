@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Falling Sand Game</title>
     <style>
         body {
@@ -14,6 +14,7 @@
             font-family: Arial, sans-serif;
             color: white;
             overflow: hidden;
+            touch-action: none; /* Prevent default touch behaviors */
         }
 
         .game-container {
@@ -21,11 +22,16 @@
             gap: 20px;
             margin: 20px;
             align-items: flex-start;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         #canvas {
             border: 2px solid #333;
             background-color: #000;
+            max-width: 100%;
+            height: auto;
         }
 
         .chat-container {
@@ -38,6 +44,40 @@
             flex-direction: column;
             height: 500px;
             margin-bottom: 40px;
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .chat-container {
+                width: 90%;
+                max-width: 300px;
+                height: 300px;
+            }
+
+            .controls {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 5px;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+
+            .brush-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            input[type="range"] {
+                width: 120px;
+            }
         }
 
         .chat-header {
@@ -327,30 +367,51 @@
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
 
-            // Set canvas size to fill most of the screen with bottom margin
-            canvas.width = Math.floor(window.innerWidth * 0.5);
-            canvas.height = Math.floor(window.innerHeight * 0.7);
+            // Set canvas size based on device
+            function resizeCanvas() {
+                const isMobile = window.innerWidth <= 768;
+                if (isMobile) {
+                    // For mobile, use 90% of screen width and 50% of screen height
+                    canvas.width = Math.floor(window.innerWidth * 0.9);
+                    canvas.height = Math.floor(window.innerHeight * 0.5);
+                } else {
+                    // For desktop, use original sizing
+                    canvas.width = Math.floor(window.innerWidth * 0.5);
+                    canvas.height = Math.floor(window.innerHeight * 0.7);
+                }
 
-            // Initialize grid and cooldown grid
-            const cols = Math.floor(canvas.width / CELL_SIZE);
-            const rows = Math.floor(canvas.height / CELL_SIZE);
-            
-            grid = Array(rows).fill().map(() => Array(cols).fill(PARTICLE_TYPES.EMPTY));
-            fireCooldowns = Array(rows).fill().map(() => Array(cols).fill(0));
-            plantHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
-            oilHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
-            poisonTimers = Array(rows).fill().map(() => Array(cols).fill(0));
-            poisonStates = Array(rows).fill().map(() => Array(cols).fill(0));
-            dustTimers = Array(rows).fill().map(() => Array(cols).fill(0));
-            nanobotDirections = Array(rows).fill().map(() => Array(cols).fill([0, 0]));
-            lavaCoolingTimers = Array(rows).fill().map(() => Array(cols).fill(0));
-            acidCorrosionTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                // Reinitialize grid and other arrays with new dimensions
+                const cols = Math.floor(canvas.width / CELL_SIZE);
+                const rows = Math.floor(canvas.height / CELL_SIZE);
+                
+                grid = Array(rows).fill().map(() => Array(cols).fill(PARTICLE_TYPES.EMPTY));
+                fireCooldowns = Array(rows).fill().map(() => Array(cols).fill(0));
+                plantHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                oilHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                poisonTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                poisonStates = Array(rows).fill().map(() => Array(cols).fill(0));
+                dustTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                nanobotDirections = Array(rows).fill().map(() => Array(cols).fill([0, 0]));
+                lavaCoolingTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                acidCorrosionTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+            }
 
-            // Event listeners
+            // Initial resize
+            resizeCanvas();
+
+            // Add resize listener
+            window.addEventListener('resize', resizeCanvas);
+
+            // Event listeners for both mouse and touch
             canvas.addEventListener('mousedown', handleMouseDown);
             canvas.addEventListener('mousemove', handleMouseMove);
             canvas.addEventListener('mouseup', handleMouseUp);
             canvas.addEventListener('mouseleave', handleMouseUp);
+            
+            // Touch events
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd);
             
             // Prevent context menu on right click
             canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -413,6 +474,45 @@
 
             // Start game loop
             setInterval(update, 1000 / FPS);
+        }
+
+        // Touch event handlers
+        function handleTouchStart(e) {
+            e.preventDefault(); // Prevent scrolling
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((touch.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((touch.clientY - rect.top) / CELL_SIZE);
+            
+            isDrawing = true;
+            isErasing = false;
+            lastX = x;
+            lastY = y;
+            handleTouchMove(e);
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault(); // Prevent scrolling
+            if (!isDrawing) return;
+
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((touch.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((touch.clientY - rect.top) / CELL_SIZE);
+
+            if (x >= 0 && x < grid[0].length && y >= 0 && y < grid.length) {
+                drawLine(lastX, lastY, x, y);
+                lastX = x;
+                lastY = y;
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            isDrawing = false;
+            isErasing = false;
+            lastX = -1;
+            lastY = -1;
         }
 
         // Handle mouse events
