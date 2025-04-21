@@ -255,9 +255,6 @@
                 <button class="export-button" id="exportButton">Export Comments</button>
             </div>
             <div class="chat-box" id="chatBox">
-                <div class="disclaimer">
-                    Backend storage is not currently available. Comments will work once that is set up.
-                </div>
                 <div class="active-comments">
                     <!-- Active comments will be here -->
                 </div>
@@ -2156,193 +2153,213 @@
         const hiddenCommentsContent = document.getElementById('hiddenCommentsContent');
         const hiddenCountSpan = document.querySelector('.hidden-count');
 
-        // Export comments to text file
-        function exportComments() {
-            const activeCommentsList = Array.from(activeComments.children).map(comment => {
-                const text = comment.querySelector('.comment-text').textContent;
-                const timestamp = comment.querySelector('.timestamp').textContent;
-                return `[${timestamp}] ${text}`;
-            });
-
-            const hiddenCommentsList = Array.from(hiddenCommentsContent.children).map(comment => {
-                const text = comment.querySelector('.comment-text').textContent;
-                const timestamp = comment.querySelector('.timestamp').textContent;
-                return `[${timestamp}] ${text} (hidden)`;
-            });
-
-            const allComments = [...activeCommentsList, ...hiddenCommentsList].join('\n\n');
-            const blob = new Blob([allComments], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `element_ideas_${new Date().toISOString().split('T')[0]}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        }
-
-        // Event listener for export button
-        exportButton.addEventListener('click', exportComments);
-
-        // Toggle hidden comments section
-        hiddenCommentsHeader.addEventListener('click', () => {
-            hiddenCommentsContent.classList.toggle('expanded');
-        });
-
-        // Hide a comment
-        function hideComment(commentElement) {
-            const hiddenComment = commentElement.cloneNode(true);
-            const restoreButton = document.createElement('button');
-            restoreButton.className = 'restore-button';
-            restoreButton.textContent = '↺ Restore';
-            restoreButton.onclick = () => restoreComment(hiddenComment);
-            
-            // Remove the hide button from the hidden comment
-            const hideButton = hiddenComment.querySelector('.hide-button');
-            if (hideButton) {
-                hideButton.remove();
-            }
-            
-            // Add the restore button
-            hiddenComment.appendChild(restoreButton);
-            
-            // Add to hidden comments
-            hiddenCommentsContent.appendChild(hiddenComment);
-            
-            // Remove from active comments
-            commentElement.remove();
-            
-            // Update hidden count
-            updateHiddenCount();
-            
-            // Save state
-            saveComments();
-        }
-
-        // Restore a comment
-        function restoreComment(hiddenComment) {
-            const restoredComment = hiddenComment.cloneNode(true);
-            
-            // Remove the restore button
-            const restoreButton = restoredComment.querySelector('.restore-button');
-            if (restoreButton) {
-                restoreButton.remove();
-            }
-            
-            // Add hide button back
-            const hideButton = document.createElement('button');
-            hideButton.className = 'hide-button';
-            hideButton.textContent = '×';
-            hideButton.onclick = () => hideComment(restoredComment);
-            restoredComment.appendChild(hideButton);
-            
-            // Add to active comments
-            activeComments.insertBefore(restoredComment, activeComments.firstChild);
-            
-            // Remove from hidden comments
-            hiddenComment.remove();
-            
-            // Update hidden count
-            updateHiddenCount();
-            
-            // Save state
-            saveComments();
-        }
+        // Supabase configuration
+        const SUPABASE_URL = 'https://hohwexjhpmkdkryhxcek.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaHdleGpocG1rZGtyeWh4Y2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUyNDAzNzgsImV4cCI6MjA2MDgxNjM3OH0.db81CPsglOady0TOau3mWaUrPmmv8lxnwMk8NM-L5nQ';
 
         // Update hidden comments count
         function updateHiddenCount() {
-            const count = hiddenCommentsContent.children.length;
-            hiddenCountSpan.textContent = `(${count})`;
+            const userHiddenComments = JSON.parse(localStorage.getItem('hiddenComments') || '[]');
+            const hiddenCount = userHiddenComments.length;
+            hiddenCountSpan.textContent = `(${hiddenCount})`;
         }
 
-        // Load comments from localStorage
-        function loadComments() {
-            const data = JSON.parse(localStorage.getItem('elementComments') || '{"active": [], "hidden": []}');
-            
-            // Load active comments
-            activeComments.innerHTML = '';
-            data.active.reverse().forEach(comment => {
-                addCommentToChat(comment.text, comment.timestamp, false);
-            });
-            
-            // Load hidden comments
-            hiddenCommentsContent.innerHTML = '';
-            data.hidden.forEach(comment => {
-                const hiddenComment = document.createElement('div');
-                hiddenComment.className = 'comment';
-                hiddenComment.innerHTML = `
-                    <div class="comment-text">${comment.text}</div>
-                    <div class="timestamp">${comment.timestamp}</div>
-                `;
-                const restoreButton = document.createElement('button');
-                restoreButton.className = 'restore-button';
-                restoreButton.textContent = '↺ Restore';
-                restoreButton.onclick = () => restoreComment(hiddenComment);
-                hiddenComment.appendChild(restoreButton);
-                hiddenCommentsContent.appendChild(hiddenComment);
-            });
-            
-            updateHiddenCount();
+        // Load comments from Supabase
+        async function loadComments() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/comments?select=*&order=timestamp.desc`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch comments');
+                }
+                
+                const comments = await response.json();
+                
+                // Clear existing comments
+                activeComments.innerHTML = '';
+                hiddenCommentsContent.innerHTML = '';
+                
+                // Get user's hidden comments from localStorage
+                const userHiddenComments = JSON.parse(localStorage.getItem('hiddenComments') || '[]');
+                
+                // Add comments to appropriate sections
+                comments.forEach(comment => {
+                    if (userHiddenComments.includes(comment.id)) {
+                        addCommentToHiddenSection(comment);
+                    } else {
+                        addCommentToActiveSection(comment);
+                    }
+                });
+                
+                updateHiddenCount();
+            } catch (error) {
+                console.error('Error loading comments:', error);
+            }
         }
 
-        // Save comments to localStorage
-        function saveComments() {
-            const activeCommentsList = Array.from(activeComments.children).map(comment => ({
-                text: comment.querySelector('.comment-text').textContent,
-                timestamp: comment.querySelector('.timestamp').textContent
-            })).reverse();
-            
-            const hiddenCommentsList = Array.from(hiddenCommentsContent.children).map(comment => ({
-                text: comment.querySelector('.comment-text').textContent,
-                timestamp: comment.querySelector('.timestamp').textContent
-            }));
-            
-            localStorage.setItem('elementComments', JSON.stringify({
-                active: activeCommentsList,
-                hidden: hiddenCommentsList
-            }));
-        }
-
-        // Add a comment to the chat box
-        function addCommentToChat(text, timestamp = new Date().toLocaleString(), save = true) {
+        // Add a comment to the active section
+        function addCommentToActiveSection(comment) {
             const commentDiv = document.createElement('div');
             commentDiv.className = 'comment';
+            commentDiv.dataset.id = comment.id;
             commentDiv.innerHTML = `
-                <div class="comment-text">${text}</div>
-                <div class="timestamp">${timestamp}</div>
+                <div class="comment-text">${comment.text}</div>
+                <div class="timestamp">${new Date(comment.timestamp).toLocaleString()}</div>
             `;
             
             // Add hide button
             const hideButton = document.createElement('button');
             hideButton.className = 'hide-button';
             hideButton.textContent = '×';
-            hideButton.onclick = () => hideComment(commentDiv);
+            hideButton.onclick = () => toggleCommentVisibility(comment.id);
             commentDiv.appendChild(hideButton);
             
-            // Insert new comment at the top
-            chatBox.insertBefore(commentDiv, chatBox.firstChild);
+            activeComments.appendChild(commentDiv);
+        }
+
+        // Add a comment to the hidden section
+        function addCommentToHiddenSection(comment) {
+            const hiddenComment = document.createElement('div');
+            hiddenComment.className = 'comment';
+            hiddenComment.dataset.id = comment.id;
+            hiddenComment.innerHTML = `
+                <div class="comment-text">${comment.text}</div>
+                <div class="timestamp">${new Date(comment.timestamp).toLocaleString()}</div>
+            `;
             
-            if (save) {
-                saveComments();
+            const restoreButton = document.createElement('button');
+            restoreButton.className = 'restore-button';
+            restoreButton.textContent = '↺ Restore';
+            restoreButton.onclick = () => toggleCommentVisibility(comment.id);
+            hiddenComment.appendChild(restoreButton);
+            
+            hiddenCommentsContent.appendChild(hiddenComment);
+        }
+
+        // Toggle comment visibility
+        async function toggleCommentVisibility(commentId) {
+            try {
+                // Get current hidden comments from localStorage
+                const userHiddenComments = JSON.parse(localStorage.getItem('hiddenComments') || '[]');
+                
+                // Toggle the comment's hidden state
+                const newHiddenState = !userHiddenComments.includes(commentId);
+                
+                if (newHiddenState) {
+                    // Add to hidden comments
+                    userHiddenComments.push(commentId);
+                } else {
+                    // Remove from hidden comments
+                    const index = userHiddenComments.indexOf(commentId);
+                    if (index > -1) {
+                        userHiddenComments.splice(index, 1);
+                    }
+                }
+                
+                // Save updated hidden comments to localStorage
+                localStorage.setItem('hiddenComments', JSON.stringify(userHiddenComments));
+                
+                // Update the hidden count immediately
+                updateHiddenCount();
+                
+                // Reload comments to reflect the change
+                loadComments();
+            } catch (error) {
+                console.error('Error toggling comment visibility:', error);
             }
         }
 
         // Handle sending messages
-        function handleSendMessage() {
+        async function handleSendMessage() {
             const text = messageInput.value.trim();
             if (text) {
-                addCommentToChat(text);
-                messageInput.value = '';
+                try {
+                    const response = await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({ text })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to add comment');
+                    }
+                    
+                    messageInput.value = '';
+                    loadComments(); // Reload all comments to show the new one
+                } catch (error) {
+                    console.error('Error sending comment:', error);
+                }
             }
         }
 
-        // Event listeners for chat
+        // Export comments to text file
+        async function exportComments() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/comments?select=*&order=timestamp.desc`, {
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch comments');
+                }
+                
+                const comments = await response.json();
+                
+                // Get user's hidden comments from localStorage
+                const userHiddenComments = JSON.parse(localStorage.getItem('hiddenComments') || '[]');
+                
+                const activeCommentsList = comments
+                    .filter(comment => !userHiddenComments.includes(comment.id))
+                    .map(comment => {
+                        const timestamp = new Date(comment.timestamp).toLocaleString();
+                        return `[${timestamp}] ${comment.text}`;
+                    });
+
+                const hiddenCommentsList = comments
+                    .filter(comment => userHiddenComments.includes(comment.id))
+                    .map(comment => {
+                        const timestamp = new Date(comment.timestamp).toLocaleString();
+                        return `[${timestamp}] ${comment.text} (hidden)`;
+                    });
+
+                const allComments = [...activeCommentsList, ...hiddenCommentsList].join('\n\n');
+                const blob = new Blob([allComments], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `element_ideas_${new Date().toISOString().split('T')[0]}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error exporting comments:', error);
+            }
+        }
+
+        // Event listeners
         sendButton.addEventListener('click', handleSendMessage);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 handleSendMessage();
             }
+        });
+        exportButton.addEventListener('click', exportComments);
+        hiddenCommentsHeader.addEventListener('click', () => {
+            hiddenCommentsContent.classList.toggle('expanded');
         });
 
         // Load comments when the page loads
