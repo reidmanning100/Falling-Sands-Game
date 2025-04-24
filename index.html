@@ -533,6 +533,7 @@
         <button id="cryo">Cryo</button>
         <button id="lava">Lava</button>
         <button id="acid">Acid</button>
+        <button id="gunpowder">Gunpowder</button>
         <button id="clearCanvas">Clear Canvas</button>
     </div>
     <div style="display: flex; gap: 10px;">
@@ -639,7 +640,8 @@
             ICE: 13,
             LAVA: 14,
             STONE: 15,
-            ACID: 16
+            ACID: 16,
+            GUNPOWDER: 17
         };
 
         // Game state
@@ -656,6 +658,8 @@
         let lavaCoolingTimers = []; // Track lava cooling timers
         let acidCorrosionTimers = []; // Track acid corrosion timers
         let iceEvaporationTimers = []; // Track ice evaporation timers
+        let gunpowderHeatTimers = []; // Track gunpowder heat build-up timers
+        let particleVelocities = []; // Track velocities of flung particles
         const MAX_NANOBOTS = 200; // Maximum number of nanobots allowed
         let nanobotSwarmCenter = [0, 0]; // Track the center of the nanobot swarm
         let currentTool = PARTICLE_TYPES.WALL;
@@ -800,6 +804,8 @@
                 lavaCoolingTimers = Array(rows).fill().map(() => Array(cols).fill(0));
                 acidCorrosionTimers = Array(rows).fill().map(() => Array(cols).fill(0));
                 iceEvaporationTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                gunpowderHeatTimers = Array(rows).fill().map(() => Array(cols).fill(0));
+                particleVelocities = Array(rows).fill().map(() => Array(cols).fill([0, 0]));
             }
 
             // Initial resize
@@ -1076,6 +1082,43 @@
                 for (const x of cols) {
                     const particle = grid[y][x];
                     
+                    // Update particle velocities
+                    if (particleVelocities[y][x][0] !== 0 || particleVelocities[y][x][1] !== 0) {
+                        const [vx, vy] = particleVelocities[y][x];
+                        // Use the actual velocity values instead of just signs for smoother movement
+                        const newX = x + Math.round(vx);
+                        const newY = y + Math.round(vy);
+                        
+                        if (newX >= 0 && newX < grid[0].length && newY >= 0 && newY < grid.length) {
+                            if (grid[newY][newX] === PARTICLE_TYPES.EMPTY) {
+                                // Move the particle
+                                grid[newY][newX] = grid[y][x];
+                                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                                // Transfer velocity with slight reduction and some randomness
+                                const reduction = 0.7 + Math.random() * 0.2; // Random reduction between 0.7 and 0.9
+                                particleVelocities[newY][newX] = [vx * reduction, vy * reduction];
+                                particleVelocities[y][x] = [0, 0];
+                            } else {
+                                // Stop the particle if it hits something
+                                particleVelocities[y][x] = [0, 0];
+                                // Remove the sand particle if it was flung by gunpowder
+                                if (grid[y][x] === PARTICLE_TYPES.SAND) {
+                                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                                }
+                            }
+                        } else {
+                            // Stop the particle if it hits the edge
+                            particleVelocities[y][x] = [0, 0];
+                            // Remove the sand particle if it was flung by gunpowder
+                            if (grid[y][x] === PARTICLE_TYPES.SAND) {
+                                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                            }
+                        }
+                    } else if (grid[y][x] === PARTICLE_TYPES.SAND && particleVelocities[y][x][0] === 0 && particleVelocities[y][x][1] === 0) {
+                        // Remove sand particles that have lost all velocity
+                        grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    }
+                    
                     switch (particle) {
                         case PARTICLE_TYPES.SAND:
                             updateSand(x, y);
@@ -1115,6 +1158,9 @@
                             break;
                         case PARTICLE_TYPES.ACID:
                             updateAcid(x, y);
+                            break;
+                        case PARTICLE_TYPES.GUNPOWDER:
+                            updateGunpowder(x, y);
                             break;
                     }
                 }
@@ -1183,6 +1229,42 @@
                             // Completely evaporate
                             grid[y][x] = PARTICLE_TYPES.EMPTY;
                             return;
+                        }
+                    }
+                    // Update gunpowder heat timers
+                    if (gunpowderHeatTimers[y][x] > 0) {
+                        gunpowderHeatTimers[y][x]--;
+                        if (gunpowderHeatTimers[y][x] === 0) {
+                            // Create a small explosion
+                            const directions = [
+                                [0, -1],  // Up
+                                [0, 1],   // Down
+                                [-1, 0],  // Left
+                                [1, 0]    // Right
+                            ];
+                            
+                            // Shuffle directions for random-looking explosion
+                            shuffleArray(directions);
+                            
+                            // Create fire in each direction with 80% chance
+                            for (const [dy, dx] of directions) {
+                                if (Math.random() < 0.8) {
+                                    const ny = y + dy;
+                                    const nx = x + dx;
+                                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                                        if (grid[ny][nx] === PARTICLE_TYPES.EMPTY || 
+                                            grid[ny][nx] === PARTICLE_TYPES.SAND || 
+                                            grid[ny][nx] === PARTICLE_TYPES.PLANT || 
+                                            grid[ny][nx] === PARTICLE_TYPES.OIL) {
+                                            grid[ny][nx] = PARTICLE_TYPES.FIRE;
+                                            fireCooldowns[ny][nx] = 10;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Remove the gunpowder
+                            grid[y][x] = PARTICLE_TYPES.EMPTY;
                         }
                     }
                 }
@@ -2113,16 +2195,29 @@
                 return;
             }
 
-            // Check for water to freeze - increased range and frequency
-            for (let dy = -2; dy <= 2; dy++) {
-                for (let dx = -2; dx <= 2; dx++) {
+            // Check for water to freeze - match plant growth pattern
+            if (Math.random() < 0.075) { // 7.5% chance to attempt freezing each frame
+                const directions = [
+                    [0, -1],  // Up
+                    [-1, 0],  // Left
+                    [1, 0],   // Right
+                    [0, 1],   // Down
+                    [-1, -1], // Diagonals
+                    [1, -1],
+                    [-1, 1],
+                    [1, 1]
+                ];
+                shuffleArray(directions);
+
+                // Try each direction until we find water to freeze
+                for (const [dy, dx] of directions) {
                     const ny = y + dy;
                     const nx = x + dx;
                     if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
                         if (grid[ny][nx] === PARTICLE_TYPES.WATER) {
-                            // Always freeze water in range
                             grid[ny][nx] = PARTICLE_TYPES.ICE;
                             iceEvaporationTimers[ny][nx] = 0;
+                            break;
                         }
                     }
                 }
@@ -2162,8 +2257,8 @@
                 }
             }
 
-            // Simple evaporation - 0.1% chance to disappear each frame
-            if (Math.random() < 0.001) {
+            // Simple evaporation - 0.01% chance to disappear each frame (10x slower)
+            if (Math.random() < 0.0001) {
                 grid[y][x] = PARTICLE_TYPES.EMPTY;
                 return;
             }
@@ -2493,6 +2588,30 @@
                         }
                         // Ice evaporation effect removed for better performance
                     }
+                    // Draw heat effect on gunpowder that is about to explode
+                    else if (particle === PARTICLE_TYPES.GUNPOWDER && gunpowderHeatTimers[y][x] > 0) {
+                        // Calculate heat intensity based on remaining timer
+                        const heatIntensity = gunpowderHeatTimers[y][x] / 4; // 4 is max timer
+                        const glowSize = 1.2; // Slightly smaller glow for gunpowder
+                        
+                        // Draw larger glow effect
+                        offCtx.fillStyle = `rgba(255, 140, 0, ${0.6 * (1 - heatIntensity)})`;
+                        offCtx.fillRect(
+                            (x * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 2),
+                            (y * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 2),
+                            CELL_SIZE * glowSize,
+                            CELL_SIZE * glowSize
+                        );
+                        
+                        // Draw brighter center
+                        offCtx.fillStyle = `rgba(255, 200, 0, ${0.7 * (1 - heatIntensity)})`;
+                        offCtx.fillRect(
+                            (x * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 4),
+                            (y * CELL_SIZE) - (CELL_SIZE * (glowSize - 1) / 4),
+                            CELL_SIZE * (glowSize * 0.5),
+                            CELL_SIZE * (glowSize * 0.5)
+                        );
+                    }
                 }
             }
 
@@ -2540,6 +2659,8 @@
                     return '#696969'; // Dim Gray
                 case PARTICLE_TYPES.ACID:
                     return '#00FF00'; // Bright green
+                case PARTICLE_TYPES.GUNPOWDER:
+                    return '#333333'; // Dark gray
                 default:
                     return '#000';
             }
@@ -2573,6 +2694,8 @@
                     lavaCoolingTimers[y][x] = 0;
                     acidCorrosionTimers[y][x] = 0;
                     iceEvaporationTimers[y][x] = 0;
+                    gunpowderHeatTimers[y][x] = 0;
+                    particleVelocities[y][x] = [0, 0];
                 }
             }
             
@@ -2692,6 +2815,123 @@
                     grid[y][x] = PARTICLE_TYPES.EMPTY;
                     acidCorrosionTimers[y][x] = 0;
                 }
+            }
+        }
+
+        // Update gunpowder particle
+        function updateGunpowder(x, y) {
+            // First check for fire to start heat build-up
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const ny = y + dy;
+                    const nx = x + dx;
+                    if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                        if (grid[ny][nx] === PARTICLE_TYPES.FIRE && gunpowderHeatTimers[y][x] === 0) {
+                            // Start heat build-up with random duration between 2-4 frames (faster than oil)
+                            gunpowderHeatTimers[y][x] = Math.floor(Math.random() * 3) + 2;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // If heat timer is active, create a small explosion when it reaches 0
+            if (gunpowderHeatTimers[y][x] > 0) {
+                gunpowderHeatTimers[y][x]--;
+                if (gunpowderHeatTimers[y][x] === 0) {
+                    // Create a small explosion
+                    const directions = [
+                        [0, -1],  // Up
+                        [0, 1],   // Down
+                        [-1, 0],  // Left
+                        [1, 0]    // Right
+                    ];
+                    
+                    // Shuffle directions for random-looking explosion
+                    shuffleArray(directions);
+                    
+                    // Create fire in each direction with 80% chance
+                    for (const [dy, dx] of directions) {
+                        if (Math.random() < 0.8) {
+                            const ny = y + dy;
+                            const nx = x + dx;
+                            if (ny >= 0 && ny < grid.length && nx >= 0 && nx < grid[0].length) {
+                                if (grid[ny][nx] === PARTICLE_TYPES.EMPTY || 
+                                    grid[ny][nx] === PARTICLE_TYPES.SAND || 
+                                    grid[ny][nx] === PARTICLE_TYPES.PLANT || 
+                                    grid[ny][nx] === PARTICLE_TYPES.OIL) {
+                                    grid[ny][nx] = PARTICLE_TYPES.FIRE;
+                                    fireCooldowns[ny][nx] = 10;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Create flung particles in a circular pattern
+                    const flungParticles = 12; // Increased from 8 to 12 for better coverage
+                    for (let i = 0; i < flungParticles; i++) {
+                        // Calculate a more precise angle with some randomness
+                        const baseAngle = (i / flungParticles) * Math.PI * 2;
+                        const angleVariation = (Math.random() - 0.5) * 0.5; // Add some randomness to the angle
+                        const angle = baseAngle + angleVariation;
+                        
+                        // Calculate initial position with some randomness
+                        const radius = 1.5 + Math.random() * 1.5; // Random radius between 1.5 and 3
+                        const nx = x + Math.round(Math.cos(angle) * radius);
+                        const ny = y + Math.round(Math.sin(angle) * radius);
+                        
+                        if (nx >= 0 && nx < grid[0].length && ny >= 0 && ny < grid.length) {
+                            if (grid[ny][nx] === PARTICLE_TYPES.EMPTY) {
+                                grid[ny][nx] = PARTICLE_TYPES.SAND;
+                                // Set velocity based on angle with some randomness
+                                const baseVelocity = 4 + Math.random() * 3; // Increased from 2-4 to 4-7 for more powerful explosions
+                                particleVelocities[ny][nx] = [
+                                    Math.cos(angle) * baseVelocity,
+                                    Math.sin(angle) * baseVelocity
+                                ];
+                            }
+                        }
+                    }
+                    
+                    // Remove the gunpowder
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    return;
+                }
+            }
+
+            // Sand-like falling behavior
+            // Allow falling through bottom
+            if (y + 1 >= grid.length) {
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                return;
+            }
+
+            // Try to move down with minimal horizontal movement
+            if (grid[y + 1][x] === PARTICLE_TYPES.EMPTY) {
+                // Very slight random drift for natural look
+                const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+                if (x + drift >= 0 && x + drift < grid[0].length && grid[y + 1][x + drift] === PARTICLE_TYPES.EMPTY) {
+                    grid[y + 1][x + drift] = PARTICLE_TYPES.GUNPOWDER;
+                    gunpowderHeatTimers[y + 1][x + drift] = gunpowderHeatTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    gunpowderHeatTimers[y][x] = 0;
+                } else {
+                    grid[y + 1][x] = PARTICLE_TYPES.GUNPOWDER;
+                    gunpowderHeatTimers[y + 1][x] = gunpowderHeatTimers[y][x];
+                    grid[y][x] = PARTICLE_TYPES.EMPTY;
+                    gunpowderHeatTimers[y][x] = 0;
+                }
+                return;
+            }
+
+            // Try to move diagonally with minimal spread
+            const direction = Math.random() < 0.5 ? -1 : 1;
+            if (x + direction >= 0 && x + direction < grid[0].length &&
+                grid[y + 1][x + direction] === PARTICLE_TYPES.EMPTY) {
+                grid[y + 1][x + direction] = PARTICLE_TYPES.GUNPOWDER;
+                gunpowderHeatTimers[y + 1][x + direction] = gunpowderHeatTimers[y][x];
+                grid[y][x] = PARTICLE_TYPES.EMPTY;
+                gunpowderHeatTimers[y][x] = 0;
             }
         }
 
